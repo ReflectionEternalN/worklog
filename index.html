@@ -62,7 +62,7 @@ td{padding:6px;border-bottom:1px solid #eee}tr:hover{background:#f5f5f5}
 </head>
 <body>
 <div class="header"><h1>📊 MSN工作日志</h1>
-<div class="sub">生成时间: 2026-04-13 14:21 | 汇入数据: 2026-03-12 ~ 2026-04-12 | 审核数据: 2026-03-30 ~ 2026-04-12</div></div>
+<div class="sub">生成时间: 2026-04-13 14:29 | 汇入数据: 2026-03-12 ~ 2026-04-12 | 审核数据: 2026-03-30 ~ 2026-04-12</div></div>
 <div class="tabs"><button class="tab-btn active" onclick="switchTab(0)">📥 汇入日志</button><button class="tab-btn" onclick="switchTab(1)">🔍 审核日志</button></div>
 <div class="tab-content active" id="tab1">
 
@@ -253,14 +253,26 @@ renCal1();popSel1();upComp1();renCharts1();
 var D2 = JSON.parse(document.getElementById('tab2data').textContent);
 var aDSet = new Set(D2.auditDates);
 var cM2 = {};
-// reuse calendar from D1
 D1.calendar.forEach(function(c){cM2[c.date]=c});
 var cY2, cMo2;
 (function(){
   var last = D2.auditDates[D2.auditDates.length-1].split('-');
   cY2 = +last[0]; cMo2 = +last[1];
 })();
-var selAuditDate = D2.auditDates[D2.auditDates.length-1];
+
+// Range selection state for tab 2
+var rangeStart2=null, rangeEnd2=null, rangeConfirmed2=false;
+// Default: last 7 days with audit data
+(function(){
+  var ds=D2.auditDates;
+  if(ds.length>=2){
+    var end=ds[ds.length-1];
+    var start=ds[Math.max(0,ds.length-7)];
+    rangeStart2=start; rangeEnd2=end; rangeConfirmed2=true;
+  } else if(ds.length===1){
+    rangeStart2=ds[0]; rangeEnd2=ds[0]; rangeConfirmed2=true;
+  }
+})();
 
 function renCal2(){
   var box=document.getElementById('calBox2');
@@ -273,6 +285,8 @@ function renCal2(){
   var fd=new Date(cY2,cMo2-1,1);var fw=fd.getDay();fw=fw===0?6:fw-1;
   var dm=new Date(cY2,cMo2,0).getDate();
   for(var i=0;i<fw;i++)h+='<div class="cal-day empty"></div>';
+  var lo2=rangeStart2&&rangeEnd2?(rangeStart2<rangeEnd2?rangeStart2:rangeEnd2):rangeStart2;
+  var hi2=rangeStart2&&rangeEnd2?(rangeStart2<rangeEnd2?rangeEnd2:rangeStart2):rangeStart2;
   for(var d=1;d<=dm;d++){
     var ds=cY2+'-'+String(cMo2).padStart(2,'0')+'-'+String(d).padStart(2,'0');
     var inf=cM2[ds];var hd=aDSet.has(ds);
@@ -280,51 +294,91 @@ function renCal2(){
     if(inf){if(inf.isWorkday)cl+=' workday';else if(inf.note==='\u5047')cl+=' holiday';else cl+=' weekend'}
     else{var dow=new Date(cY2,cMo2-1,d).getDay();cl+=(dow===0||dow===6)?' weekend':' workday'}
     if(!hd)cl+=' no-data';
-    if(ds===selAuditDate)cl+=' selected';
+    if(lo2&&hi2&&ds>=lo2&&ds<=hi2)cl+=' selected';
     var nt=inf&&inf.note?'<div class="note">'+inf.note+'</div>':'';
-    var ck=hd?' onclick="ckDay2(\''+ds+'\')"':'';
+    var ck=' onclick="ckDay2(\''+ds+'\')"';
     h+='<div class="'+cl+'" data-date="'+ds+'"'+ck+'>'+d+nt+'</div>';
   }
-  h+='</div>';box.innerHTML=h;
-  document.getElementById('auditDateLabel').textContent=selAuditDate;
+  h+='</div>';
+  // Confirm button
+  h+='<div style="text-align:center;margin-top:8px"><button onclick="confirmRange2()" style="padding:4px 20px;cursor:pointer;background:#1976d2;color:#fff;border:none;border-radius:4px;font-size:14px">\u786e\u5b9a</button></div>';
+  box.innerHTML=h;
+  var label='';
+  if(rangeStart2&&rangeEnd2){
+    var a=rangeStart2<rangeEnd2?rangeStart2:rangeEnd2;
+    var b=rangeStart2<rangeEnd2?rangeEnd2:rangeStart2;
+    label=a+(a===b?'':' ~ '+b);
+  } else if(rangeStart2){ label=rangeStart2+' ~ ...'; }
+  document.getElementById('auditDateLabel').textContent=label;
 }
 function chMo2(d){cMo2+=d;if(cMo2>12){cMo2=1;cY2++}if(cMo2<1){cMo2=12;cY2--}renCal2()}
-function ckDay2(d){selAuditDate=d;renCal2();renderAudit()}
+function ckDay2(d){
+  if(!rangeStart2||rangeEnd2){rangeStart2=d;rangeEnd2=null;rangeConfirmed2=false;}
+  else{rangeEnd2=d;rangeConfirmed2=false;}
+  renCal2();
+}
+function confirmRange2(){
+  if(!rangeStart2){return}
+  if(!rangeEnd2){rangeEnd2=rangeStart2}
+  // normalize order
+  if(rangeStart2>rangeEnd2){var t=rangeStart2;rangeStart2=rangeEnd2;rangeEnd2=t}
+  rangeConfirmed2=true;
+  renCal2();renderAudit();
+}
+
+// Helper: get list of dates in range that have audit data
+function getRangeDates2(){
+  if(!rangeStart2||!rangeEnd2) return [];
+  var lo=rangeStart2<rangeEnd2?rangeStart2:rangeEnd2;
+  var hi=rangeStart2<rangeEnd2?rangeEnd2:rangeStart2;
+  return D2.auditDates.filter(function(d){return d>=lo&&d<=hi});
+}
 
 var auditCharts=[];
 function renderAudit(){
   auditCharts.forEach(function(c){c.dispose()});auditCharts=[];
-  var ad=D2.audit[selAuditDate];
-  if(!ad){document.getElementById('auditContent').innerHTML='<p>\u65e0\u6570\u636e</p>';return}
-  var all=ad.articles_volume_all||{};
-  var art=ad.articles_volume_article||{};
-  var vid=ad.articles_volume_video||{};
-  // Publish rate from volume data
+  var dates=getRangeDates2();
+  if(dates.length===0){document.getElementById('auditContent').innerHTML='<p>\u65e0\u6570\u636e</p>';return}
+
+  // ── Aggregate volume fields ──
+  var volFields=['ReceivedCnt','SendReviewedCnt','ApproveCnt','RejectCnt','EverGreenCnt','FilterCnt','AIReviewCnt','TSIorIngestionFailureCnt','PublishCnt','HIReviewCnt','NotReviewedCnt','FailedCnt'];
+  function sumVol(key){
+    var s={};volFields.forEach(function(f){s[f]=0});
+    dates.forEach(function(dt){var ad=D2.audit[dt];if(!ad)return;var v=ad[key]||{};volFields.forEach(function(f){s[f]+=(v[f]||0)})});
+    return s;
+  }
+  var all=sumVol('articles_volume_all');
+  var art=sumVol('articles_volume_article');
+  var vid=sumVol('articles_volume_video');
+
   var artPubRate = art.ReceivedCnt>0 ? ((art.PublishCnt||0)/(art.ReceivedCnt)*100) : 0;
   var vidPubRate = vid.ReceivedCnt>0 ? ((vid.PublishCnt||0)/(vid.ReceivedCnt)*100) : 0;
   var allPubRate = all.ReceivedCnt>0 ? ((all.PublishCnt||0)/(all.ReceivedCnt)*100) : 0;
 
-  // Avg publish duration from new structure
-  var avgDur = ad.avg_duration_all||{};
-  var avgDurArt = ad.avg_duration_article||{};
-  var avgDurVid = ad.avg_duration_video||{};
-  // Parse HH:MM:SS format from AvgDurationPublishTime
+  // ── Aggregate avg duration (average across days) ──
   function parseDuration(s){
     if(!s) return 0;
     var parts = String(s).split(':');
-    if(parts.length>=3) return parseInt(parts[0])*60 + parseInt(parts[1]) + parseInt(parts[2])/60;
+    if(parts.length>=3) return parseInt(parts[0])*3600 + parseInt(parts[1])*60 + parseFloat(parts[2]);
     return 0;
   }
-  function fmtDuration(s){
-    if(!s) return '-';
-    var parts = String(s).split(':');
-    if(parts.length>=3) return parts[0]+'h'+parts[1]+'m';
-    return s;
+  function fmtDurationSec(totalSec){
+    if(totalSec<=0) return '-';
+    var h=Math.floor(totalSec/3600);var m=Math.floor((totalSec%3600)/60);
+    return String(h).padStart(2,'0')+'h'+String(m).padStart(2,'0')+'m';
   }
-  var avgH = fmtDuration(avgDur.AvgDurationPublishTime);
-  var avgHArt = fmtDuration(avgDurArt.AvgDurationPublishTime);
-  var avgHVid = fmtDuration(avgDurVid.AvgDurationPublishTime);
-  var avgMinutes = parseDuration(avgDur.AvgDurationPublishTime);
+  function avgDurField(volKey,field){
+    var sum=0,cnt=0;
+    dates.forEach(function(dt){var ad=D2.audit[dt];if(!ad)return;var v=ad[volKey]||{};var s=parseDuration(v[field]);if(s>0){sum+=s;cnt++}});
+    return cnt>0?sum/cnt:0;
+  }
+  var avgAllSec=avgDurField('avg_duration_all','AvgDurationPublishTime');
+  var avgArtSec=avgDurField('avg_duration_article','AvgDurationPublishTime');
+  var avgVidSec=avgDurField('avg_duration_video','AvgDurationPublishTime');
+  var avgH=fmtDurationSec(avgAllSec);
+  var avgHArt=fmtDurationSec(avgArtSec);
+  var avgHVid=fmtDurationSec(avgVidSec);
+  var avgMinutes=avgAllSec/60;
 
   // ── Overview table ──
   var metrics = [
@@ -344,11 +398,8 @@ function renderAudit(){
   var oh='<table class="audit-overview"><thead><tr><th>\u6307\u6807</th><th>\u5168\u90e8</th><th>\u56fe\u6587</th><th>\u89c6\u9891</th></tr></thead><tbody>';
   metrics.forEach(function(m){
     var alertAll='',alertArt='',alertVid='';
-    // Red alerts
     if(m[0].indexOf('\u901a\u8fc7\u91cf')>=0 && typeof m[3]==='number' && m[3]<3500) alertVid=' class="alert-cell"';
-    if(m[0].indexOf('24h\u5ba1\u6838\u7387')>=0){
-      // check article rate - we use overall here
-    }
+    if(m[0].indexOf('24h\u5ba1\u6838\u7387')>=0){}
     if(m[0].indexOf('\u53d1\u5e03\u7387')>=0){
       if(typeof m[2]==='string' && parseFloat(m[2])<70) alertArt=' class="alert-cell"';
     }
@@ -357,34 +408,57 @@ function renderAudit(){
   });
   oh+='</tbody></table>';
 
-  // ── HI Reject Reasons ──
+  // ── HI Reject Reasons (merge across days) ──
+  var reasonMap={};
+  dates.forEach(function(dt){var ad=D2.audit[dt];if(!ad)return;(ad.hi_reject_reason||[]).forEach(function(r){var k=r.token||'Unknown';reasonMap[k]=(reasonMap[k]||0)+(r.cnt||0)})});
+  var reasons=[];for(var k in reasonMap)reasons.push({token:k,cnt:reasonMap[k]});
+  reasons.sort(function(a,b){return b.cnt-a.cnt});
   var rejectDiv='';
-  var reasons = ad.hi_reject_reason||[];
   if(reasons.length>0){
     rejectDiv='<div id="rejectChart" class="chart-box"></div>';
   } else {
-    rejectDiv='<p style="color:#999;padding:10px">\u5f53\u65e5\u65e0HI\u62d2\u7edd\u8bb0\u5f55</p>';
+    rejectDiv='<p style="color:#999;padding:10px">\u65e0HI\u62d2\u7edd\u8bb0\u5f55</p>';
   }
 
-  // ── Delay distribution ──
-  var dd = ad.avg_duration_all||{};
-  var delayDiv='';
+  // ── Delay stat ──
   var delayStat='<div class="stats"><div class="stat-box"><div class="n">'+avgH+'</div><div class="l">\u5168\u90e8\u5e73\u5747\u53d1\u5e03\u65f6\u957f</div></div><div class="stat-box"><div class="n">'+avgHArt+'</div><div class="l">\u56fe\u6587\u5e73\u5747\u53d1\u5e03\u65f6\u957f</div></div><div class="stat-box"><div class="n">'+avgHVid+'</div><div class="l">\u89c6\u9891\u5e73\u5747\u53d1\u5e03\u65f6\u957f</div></div></div>';
 
-  // ── Editor efficiency table ──
-  var editors = (ad.review_by_editor||[]).filter(function(e){return !D2.validReviewers||D2.validReviewers.indexOf(e.Requester)>=0});
-  var wm = {};
-  (ad.working_minutes||[]).filter(function(w){return !D2.validReviewers||D2.validReviewers.indexOf(w.Requester)>=0}).forEach(function(w){wm[w.Requester]=w});
-  var effRows=[];
-  editors.forEach(function(e){
-    var w=wm[e.Requester]||{};
-    var mins=w.sumMinutes||0;
-    var eff=mins>0?(e.reviewCnt/mins).toFixed(2):'-';
-    var nm=D2.reviewerNames[e.Requester]||e.Requester.split('@')[0];
-    var ded='-';
-    if(D2.deductions&&D2.deductions[selAuditDate]){var dd=D2.deductions[selAuditDate];if(dd[nm]!==undefined)ded=dd[nm];}
-    effRows.push({name:nm,email:e.Requester,ded:ded,total:e.reviewCnt,approve:e.approveCnt,reject:e.rejectCnt,rate:e.rejectRate,mins:mins,eff:eff});
+  // ── Editor efficiency (aggregate across days) ──
+  var editorMap={},wmMap={};
+  dates.forEach(function(dt){
+    var ad=D2.audit[dt];if(!ad)return;
+    (ad.review_by_editor||[]).filter(function(e){return !D2.validReviewers||D2.validReviewers.indexOf(e.Requester)>=0}).forEach(function(e){
+      if(!editorMap[e.Requester])editorMap[e.Requester]={reviewCnt:0,approveCnt:0,rejectCnt:0};
+      editorMap[e.Requester].reviewCnt+=e.reviewCnt||0;
+      editorMap[e.Requester].approveCnt+=e.approveCnt||0;
+      editorMap[e.Requester].rejectCnt+=e.rejectCnt||0;
+    });
+    (ad.working_minutes||[]).filter(function(w){return !D2.validReviewers||D2.validReviewers.indexOf(w.Requester)>=0}).forEach(function(w){
+      if(!wmMap[w.Requester])wmMap[w.Requester]=0;
+      wmMap[w.Requester]+=(w.sumMinutes||0);
+    });
   });
+  // Aggregate deductions across days
+  var dedMap={};
+  dates.forEach(function(dt){
+    if(!D2.deductions||!D2.deductions[dt])return;
+    var dd=D2.deductions[dt];
+    for(var nm in dd){
+      var v=dd[nm];if(v==='/'||v===undefined)continue;
+      var n=parseFloat(v);if(isNaN(n))continue;
+      dedMap[nm]=(dedMap[nm]||0)+n;
+    }
+  });
+  var effRows=[];
+  for(var req in editorMap){
+    var e=editorMap[req];
+    var mins=wmMap[req]||0;
+    var eff=mins>0?(e.reviewCnt/mins).toFixed(2):'-';
+    var nm=D2.reviewerNames[req]||req.split('@')[0];
+    var ded=dedMap[nm]!==undefined?String(dedMap[nm]):'-';
+    var rate=e.reviewCnt>0?((e.rejectCnt/e.reviewCnt)*100).toFixed(2):'0.00';
+    effRows.push({name:nm,email:req,ded:ded,total:e.reviewCnt,approve:e.approveCnt,reject:e.rejectCnt,rate:rate,mins:Math.round(mins),eff:eff});
+  }
   effRows.sort(function(a,b){return b.total-a.total});
   var effH='<table class="eff-table"><thead><tr><th>#</th><th>\u5ba1\u6838\u5458</th><th>\u603b\u8ba1</th><th>\u901a\u8fc7</th><th>\u62d2\u7edd</th><th>\u62d2\u7edd\u7387%</th><th>\u5de5\u4f5c\u65f6\u957f(min)</th><th>\u4eba\u6548(\u6761/min)</th><th>\u590d\u5ba1\u6263\u5206</th></tr></thead><tbody>';
   effRows.forEach(function(r,i){
@@ -393,22 +467,28 @@ function renderAudit(){
   });
   effH+='</tbody></table>';
 
-  // ── Send vs Review ──
-  var svr=ad.hourly_send_review||[];
+  // ── Send vs Review (aggregate hourly across days) ──
+  var svrMap={};
+  dates.forEach(function(dt){var ad=D2.audit[dt];if(!ad)return;(ad.hourly_send_review||[]).forEach(function(s){
+    if(!svrMap[s.hour])svrMap[s.hour]={SendReviewCnt:0,ReviewCnt:0};
+    svrMap[s.hour].SendReviewCnt+=(s.SendReviewCnt||0);
+    svrMap[s.hour].ReviewCnt+=(s.ReviewCnt||0);
+  })});
+  var svr=[];for(var hr in svrMap)svr.push({hour:hr,SendReviewCnt:svrMap[hr].SendReviewCnt,ReviewCnt:svrMap[hr].ReviewCnt});
+  svr.sort(function(a,b){return parseInt(a.hour)-parseInt(b.hour)});
   var svrDiv='<div id="svrChart" class="chart-box"></div>';
 
   // Assemble
   var html='';
   html+='<div class="card"><h2>\u5ba1\u6838\u603b\u89c8</h2>'+oh+'</div>';
   html+='<div class="card"><h2>HI\u62d2\u7edd\u539f\u56e0\u5206\u5e03 (Top 10)</h2>'+rejectDiv+'</div>';
-  html+='<div class="card"><h2>\u5ba1\u6838\u65f6\u6548</h2>'+delayStat+delayDiv+'</div>';
+  html+='<div class="card"><h2>\u5ba1\u6838\u65f6\u6548</h2>'+delayStat+'</div>';
   html+='<div class="card"><h2>\u5ba1\u6838\u5458\u4eba\u6548</h2>'+effH+'</div>';
   html+='<div class="card"><h2>\u9010\u65f6\u9001\u5ba1 VS \u5ba1\u6838</h2>'+svrDiv+'</div>';
 
   document.getElementById('auditContent').innerHTML=html;
 
   // Render charts
-  // Reject reasons chart
   if(reasons.length>0){
     var top10=reasons.slice(0,10);
     var rc=echarts.init(document.getElementById('rejectChart'));
@@ -422,9 +502,6 @@ function renderAudit(){
     auditCharts.push(rc);
   }
 
-  // No delay distribution chart (only avg duration available)
-
-  // Send vs Review chart
   if(svr.length>0){
     var sc=echarts.init(document.getElementById('svrChart'));
     sc.setOption({
