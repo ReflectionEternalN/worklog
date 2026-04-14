@@ -62,7 +62,7 @@ td{padding:6px;border-bottom:1px solid #eee}tr:hover{background:#f5f5f5}
 </head>
 <body>
 <div class="header"><h1>📊 MSN工作日志</h1>
-<div class="sub">生成时间: 2026-04-14 09:05 | 汇入数据: 2026-03-13 ~ 2026-04-13 | 审核数据: 2026-03-30 ~ 2026-04-13</div></div>
+<div class="sub">生成时间: 2026-04-14 09:21 | 汇入数据: 2026-03-13 ~ 2026-04-13 | 审核数据: 2026-03-30 ~ 2026-04-13</div></div>
 <div class="tabs"><button class="tab-btn active" onclick="switchTab(0)">📥 汇入日志</button><button class="tab-btn" onclick="switchTab(1)">🔍 审核日志</button></div>
 <div class="tab-content active" id="tab1">
 
@@ -101,14 +101,10 @@ td{padding:6px;border-bottom:1px solid #eee}tr:hover{background:#f5f5f5}
 <div class="tab-content" id="tab2">
 
 <div class="card">
-  <h2>📅 选择日期范围</h2>
+  <h2>📅 选择日期</h2>
   <div id="calBox2"></div>
-  <div class="cal-legend"><span class="w">工作日</span><span class="h">节假日</span><span class="e">周末</span><span class="s">已选范围</span></div>
-  <div class="cal-actions">
-    <div class="rd" id="rd2">请选择日期范围</div>
-    <button class="btn btn-s" onclick="resetR2()">重置</button>
-    <button class="btn btn-p" onclick="applyR2()">确定</button>
-  </div>
+  <div class="cal-legend"><span class="w">工作日</span><span class="h">节假日</span><span class="e">周末</span><span class="s">已选</span></div>
+  <p style="text-align:center;margin-top:10px;font-size:14px;color:#1565C0;font-weight:bold">当前日期: <span id="auditDateLabel"></span></p>
 </div>
 <div id="auditContent"></div>
 
@@ -257,15 +253,14 @@ renCal1();popSel1();upComp1();renCharts1();
 var D2 = JSON.parse(document.getElementById('tab2data').textContent);
 var aDSet = new Set(D2.auditDates);
 var cM2 = {};
+// reuse calendar from D1
 D1.calendar.forEach(function(c){cM2[c.date]=c});
 var cY2, cMo2;
 (function(){
   var last = D2.auditDates[D2.auditDates.length-1].split('-');
   cY2 = +last[0]; cMo2 = +last[1];
 })();
-// Range selection state for tab2
-var rS2=D2.auditDates[0], rE2=D2.auditDates[D2.auditDates.length-1];
-var aS2=D2.auditDates[0], aE2=D2.auditDates[D2.auditDates.length-1];
+var selAuditDate = D2.auditDates[D2.auditDates.length-1];
 
 function renCal2(){
   var box=document.getElementById('calBox2');
@@ -283,175 +278,137 @@ function renCal2(){
     var inf=cM2[ds];var hd=aDSet.has(ds);
     var cl='cal-day';
     if(inf){if(inf.isWorkday)cl+=' workday';else if(inf.note==='\u5047')cl+=' holiday';else cl+=' weekend'}
-    else{var dow=new Date(cY2,cMo2-1,d).getDay();if(hSet2.has(ds))cl+=' holiday';else if(woSet2.has(ds))cl+=' workday';else cl+=(dow===0||dow===6)?' weekend':' workday'}
+    else{var dow=new Date(cY2,cMo2-1,d).getDay();cl+=(dow===0||dow===6)?' weekend':' workday'}
     if(!hd)cl+=' no-data';
-    if(rS2&&rE2&&ds>=rS2&&ds<=rE2)cl+=' in-range';
-    if(ds===rS2||ds===rE2)cl+=' selected';
-    var nt=inf&&inf.note?'<div class="note">'+inf.note+'</div>':(typeof hSet2!=='undefined'&&hSet2.has(ds)?'<div class="note">\u5047</div>':(typeof woSet2!=='undefined'&&woSet2.has(ds)?'<div class="note">\u73ed</div>':''));
+    if(ds===selAuditDate)cl+=' selected';
+    var nt=inf&&inf.note?'<div class="note">'+inf.note+'</div>':'';
     var ck=hd?' onclick="ckDay2(\''+ds+'\')"':'';
     h+='<div class="'+cl+'" data-date="'+ds+'"'+ck+'>'+d+nt+'</div>';
   }
-  h+='</div>';box.innerHTML=h;upRD2();
+  h+='</div>';box.innerHTML=h;
+  document.getElementById('auditDateLabel').textContent=selAuditDate;
 }
 function chMo2(d){cMo2+=d;if(cMo2>12){cMo2=1;cY2++}if(cMo2<1){cMo2=12;cY2--}renCal2()}
-function ckDay2(d){if(!rS2||(rS2&&rE2)){rS2=d;rE2=null}else{if(d<rS2){rE2=rS2;rS2=d}else rE2=d}renCal2()}
-function resetR2(){rS2=null;rE2=null;renCal2()}
-function applyR2(){if(!rS2||!rE2){alert('\u8bf7\u5148\u9009\u62e9\u5f00\u59cb\u548c\u7ed3\u675f\u65e5\u671f');return}aS2=rS2;aE2=rE2;renderAudit()}
-function upRD2(){var e=document.getElementById('rd2');if(rS2&&rE2)e.textContent='\u5df2\u9009: '+rS2+' ~ '+rE2;else if(rS2)e.textContent='\u8d77\u59cb: '+rS2+'\uff0c\u8bf7\u9009\u62e9\u7ed3\u675f\u65e5\u671f';else e.textContent='\u5f53\u524d\u8303\u56f4: '+aS2+' ~ '+aE2}
-function getAuditRange(){return D2.auditDates.filter(function(d){return d>=aS2&&d<=aE2})}
-
-function parseDurSec(s){
-  if(!s)return 0;
-  var p=String(s).split(':');
-  if(p.length>=3)return parseInt(p[0])*3600+parseInt(p[1])*60+parseFloat(p[2]);
-  return 0;
-}
-function secToHMS(sec){
-  var h=Math.floor(sec/3600);var m=Math.floor((sec%3600)/60);var s=Math.round(sec%60);
-  return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
-}
-function fmtDuration(s){
-  if(!s)return '-';
-  var p=String(s).split(':');
-  if(p.length>=3)return p[0]+'h'+p[1]+'m';
-  return s;
-}
-function parseDurMin(s){
-  if(!s)return 0;
-  var p=String(s).split(':');
-  if(p.length>=3)return parseInt(p[0])*60+parseInt(p[1])+parseInt(p[2])/60;
-  return 0;
-}
+function ckDay2(d){selAuditDate=d;renCal2();renderAudit()}
 
 var auditCharts=[];
 function renderAudit(){
   auditCharts.forEach(function(c){c.dispose()});auditCharts=[];
-  var dates=getAuditRange();
-  if(dates.length===0){document.getElementById('auditContent').innerHTML='<p>\u65e0\u6570\u636e</p>';return}
+  var ad=D2.audit[selAuditDate];
+  if(!ad){document.getElementById('auditContent').innerHTML='<p>\u65e0\u6570\u636e</p>';return}
+  var all=ad.articles_volume_all||{};
+  var art=ad.articles_volume_article||{};
+  var vid=ad.articles_volume_video||{};
+  // Publish rate from volume data
+  var artPubRate = art.ReceivedCnt>0 ? ((art.PublishCnt||0)/(art.ReceivedCnt)*100) : 0;
+  var vidPubRate = vid.ReceivedCnt>0 ? ((vid.PublishCnt||0)/(vid.ReceivedCnt)*100) : 0;
+  var allPubRate = all.ReceivedCnt>0 ? ((all.PublishCnt||0)/(all.ReceivedCnt)*100) : 0;
 
-  // ── Aggregate volume fields ──
-  var volFields=['ReceivedCnt','SendReviewedCnt','ApproveCnt','RejectCnt','EverGreenCnt','FilterCnt','AIReviewCnt','TSIorIngestionFailureCnt','PublishCnt','HIReviewCnt','NotReviewedCnt','FailedCnt'];
-  function sumVol(key){
-    var r={};volFields.forEach(function(f){r[f]=0});
-    dates.forEach(function(dt){var ad=D2.audit[dt];if(!ad)return;var v=ad[key]||{};volFields.forEach(function(f){r[f]+=(v[f]||0)})});
-    return r;
+  // Avg publish duration from new structure
+  var avgDur = ad.avg_duration_all||{};
+  var avgDurArt = ad.avg_duration_article||{};
+  var avgDurVid = ad.avg_duration_video||{};
+  // Parse HH:MM:SS format from AvgDurationPublishTime
+  function parseDuration(s){
+    if(!s) return 0;
+    var parts = String(s).split(':');
+    if(parts.length>=3) return parseInt(parts[0])*60 + parseInt(parts[1]) + parseInt(parts[2])/60;
+    return 0;
   }
-  var all=sumVol('articles_volume_all');
-  var art=sumVol('articles_volume_article');
-  var vid=sumVol('articles_volume_video');
-
-  var artPubRate=art.ReceivedCnt>0?((art.PublishCnt)/art.ReceivedCnt*100):0;
-  var vidPubRate=vid.ReceivedCnt>0?((vid.PublishCnt)/vid.ReceivedCnt*100):0;
-  var allPubRate=all.ReceivedCnt>0?((all.PublishCnt)/all.ReceivedCnt*100):0;
-
-  // ── Aggregate avg duration (average across days) ──
-  function avgDurField(key){
-    var total=0,cnt=0;
-    dates.forEach(function(dt){var ad=D2.audit[dt];if(!ad)return;var v=ad[key]||{};var s=parseDurSec(v.AvgDurationPublishTime);if(s>0){total+=s;cnt++}});
-    if(cnt===0)return null;
-    return secToHMS(total/cnt);
+  function fmtDuration(s){
+    if(!s) return '-';
+    var parts = String(s).split(':');
+    if(parts.length>=3) return parts[0]+'h'+parts[1]+'m';
+    return s;
   }
-  var avgDurAll=avgDurField('avg_duration_all');
-  var avgDurArt=avgDurField('avg_duration_article');
-  var avgDurVid=avgDurField('avg_duration_video');
-  var avgH=fmtDuration(avgDurAll);
-  var avgHArt=fmtDuration(avgDurArt);
-  var avgHVid=fmtDuration(avgDurVid);
-  var avgMinutes=parseDurMin(avgDurAll);
+  var avgH = fmtDuration(avgDur.AvgDurationPublishTime);
+  var avgHArt = fmtDuration(avgDurArt.AvgDurationPublishTime);
+  var avgHVid = fmtDuration(avgDurVid.AvgDurationPublishTime);
+  var avgMinutes = parseDuration(avgDur.AvgDurationPublishTime);
 
   // ── Overview table ──
-  var metrics=[
-    ['\u6536\u5230\u91cf ReceivedCnt',all.ReceivedCnt,art.ReceivedCnt,vid.ReceivedCnt],
-    ['\u9001\u5ba1\u91cf SendReviewedCnt',all.SendReviewedCnt,art.SendReviewedCnt,vid.SendReviewedCnt],
-    ['\u901a\u8fc7\u91cf ApproveCnt',all.ApproveCnt,art.ApproveCnt,vid.ApproveCnt],
-    ['\u62d2\u7edd\u91cf RejectCnt',all.RejectCnt,art.RejectCnt,vid.RejectCnt],
-    ['EverGreen\u91cf',all.EverGreenCnt,art.EverGreenCnt,vid.EverGreenCnt],
-    ['\u53d1\u5e03\u91cf PublishCnt',all.PublishCnt,art.PublishCnt,vid.PublishCnt],
-    ['HI\u5ba1\u6838\u91cf',all.HIReviewCnt,art.HIReviewCnt,vid.HIReviewCnt],
-    ['\u672a\u5ba1\u6838\u91cf',all.NotReviewedCnt,art.NotReviewedCnt,vid.NotReviewedCnt],
-    ['24h\u5ba1\u6838\u7387','-','-','-'],
-    ['\u53d1\u5e03\u7387',allPubRate.toFixed(2)+'%',artPubRate.toFixed(2)+'%',vidPubRate.toFixed(2)+'%'],
-    ['\u5e73\u5747\u53d1\u5e03\u65f6\u957f',avgH,avgHArt,avgHVid]
+  var metrics = [
+    ['\u6536\u5230\u91cf ReceivedCnt', all.ReceivedCnt, art.ReceivedCnt, vid.ReceivedCnt],
+    ['\u9001\u5ba1\u91cf SendReviewedCnt', all.SendReviewedCnt, art.SendReviewedCnt, vid.SendReviewedCnt],
+    ['\u901a\u8fc7\u91cf ApproveCnt', all.ApproveCnt, art.ApproveCnt, vid.ApproveCnt],
+    ['\u62d2\u7edd\u91cf RejectCnt', all.RejectCnt, art.RejectCnt, vid.RejectCnt],
+    ['EverGreen\u91cf', all.EverGreenCnt, art.EverGreenCnt, vid.EverGreenCnt],
+    ['\u53d1\u5e03\u91cf PublishCnt', all.PublishCnt, art.PublishCnt, vid.PublishCnt],
+    ['HI\u5ba1\u6838\u91cf', all.HIReviewCnt, art.HIReviewCnt, vid.HIReviewCnt],
+    ['\u672a\u5ba1\u6838\u91cf', all.NotReviewedCnt, art.NotReviewedCnt, vid.NotReviewedCnt],
+    ['24h\u5ba1\u6838\u7387', '-', '-', '-'],
+    ['\u53d1\u5e03\u7387', allPubRate.toFixed(2)+'%', artPubRate.toFixed(2)+'%', vidPubRate.toFixed(2)+'%'],
+    ['\u5e73\u5747\u53d1\u5e03\u65f6\u957f', avgH, avgHArt, avgHVid]
   ];
+
   var oh='<table class="audit-overview"><thead><tr><th>\u6307\u6807</th><th>\u5168\u90e8</th><th>\u56fe\u6587</th><th>\u89c6\u9891</th></tr></thead><tbody>';
   metrics.forEach(function(m){
     var alertAll='',alertArt='',alertVid='';
-    if(m[0].indexOf('\u901a\u8fc7\u91cf')>=0&&typeof m[3]==='number'&&m[3]<3500)alertVid=' class="alert-cell"';
-    if(m[0].indexOf('\u53d1\u5e03\u7387')>=0){if(typeof m[2]==='string'&&parseFloat(m[2])<70)alertArt=' class="alert-cell"'}
-    if(m[0].indexOf('\u5e73\u5747\u53d1\u5e03\u65f6\u957f')>=0&&avgMinutes>120)alertAll=' class="alert-cell"';
+    // Red alerts
+    if(m[0].indexOf('\u901a\u8fc7\u91cf')>=0 && typeof m[3]==='number' && m[3]<3500) alertVid=' class="alert-cell"';
+    if(m[0].indexOf('24h\u5ba1\u6838\u7387')>=0){
+      // check article rate - we use overall here
+    }
+    if(m[0].indexOf('\u53d1\u5e03\u7387')>=0){
+      if(typeof m[2]==='string' && parseFloat(m[2])<70) alertArt=' class="alert-cell"';
+    }
+    if(m[0].indexOf('\u5e73\u5747\u53d1\u5e03\u65f6\u957f')>=0 && avgMinutes>120) alertAll=' class="alert-cell"';
     oh+='<tr><td style="text-align:left;font-weight:bold">'+m[0]+'</td><td'+alertAll+'>'+(typeof m[1]==='number'?m[1].toLocaleString():m[1])+'</td><td'+alertArt+'>'+(typeof m[2]==='number'?m[2].toLocaleString():m[2])+'</td><td'+alertVid+'>'+(typeof m[3]==='number'?m[3].toLocaleString():m[3])+'</td></tr>';
   });
   oh+='</tbody></table>';
 
-  // ── Aggregate HI Reject Reasons ──
-  var reasonMap={};
-  dates.forEach(function(dt){var ad=D2.audit[dt];if(!ad)return;(ad.hi_reject_reason||[]).forEach(function(r){var k=r.token||'Unknown';reasonMap[k]=(reasonMap[k]||0)+(r.cnt||0)})});
-  var reasons=Object.keys(reasonMap).map(function(k){return{token:k,cnt:reasonMap[k]}}).sort(function(a,b){return b.cnt-a.cnt});
+  // ── HI Reject Reasons ──
   var rejectDiv='';
-  if(reasons.length>0){rejectDiv='<div id="rejectChart" class="chart-box"></div>'}else{rejectDiv='<p style="color:#999;padding:10px">\u65e0HI\u62d2\u7edd\u8bb0\u5f55</p>'}
+  var reasons = ad.hi_reject_reason||[];
+  if(reasons.length>0){
+    rejectDiv='<div id="rejectChart" class="chart-box"></div>';
+  } else {
+    rejectDiv='<p style="color:#999;padding:10px">\u5f53\u65e5\u65e0HI\u62d2\u7edd\u8bb0\u5f55</p>';
+  }
 
+  // ── Delay distribution ──
+  var dd = ad.avg_duration_all||{};
+  var delayDiv='';
   var delayStat='<div class="stats"><div class="stat-box"><div class="n">'+avgH+'</div><div class="l">\u5168\u90e8\u5e73\u5747\u53d1\u5e03\u65f6\u957f</div></div><div class="stat-box"><div class="n">'+avgHArt+'</div><div class="l">\u56fe\u6587\u5e73\u5747\u53d1\u5e03\u65f6\u957f</div></div><div class="stat-box"><div class="n">'+avgHVid+'</div><div class="l">\u89c6\u9891\u5e73\u5747\u53d1\u5e03\u65f6\u957f</div></div></div>';
 
-  // ── Aggregate editor efficiency ──
-  var edMap={},wmMap={};
-  dates.forEach(function(dt){
-    var ad=D2.audit[dt];if(!ad)return;
-    (ad.review_by_editor||[]).filter(function(e){return !D2.validReviewers||D2.validReviewers.indexOf(e.Requester)>=0}).forEach(function(e){
-      if(!edMap[e.Requester])edMap[e.Requester]={reviewCnt:0,approveCnt:0,rejectCnt:0};
-      edMap[e.Requester].reviewCnt+=e.reviewCnt||0;edMap[e.Requester].approveCnt+=e.approveCnt||0;edMap[e.Requester].rejectCnt+=e.rejectCnt||0;
-    });
-    (ad.working_minutes||[]).filter(function(w){return !D2.validReviewers||D2.validReviewers.indexOf(w.Requester)>=0}).forEach(function(w){
-      if(!wmMap[w.Requester])wmMap[w.Requester]=0;
-      wmMap[w.Requester]+=(w.sumMinutes||0);
-    });
-  });
-  // Aggregate deductions
-  var dedMap={};
-  dates.forEach(function(dt){
-    if(!D2.deductions||!D2.deductions[dt])return;
-    var dd=D2.deductions[dt];
-    Object.keys(dd).forEach(function(nm){
-      var v=dd[nm];if(v==='/'||v==='-')return;
-      var n=parseFloat(v);if(isNaN(n))return;
-      dedMap[nm]=(dedMap[nm]||0)+n;
-    });
-  });
+  // ── Editor efficiency table ──
+  var editors = (ad.review_by_editor||[]).filter(function(e){return !D2.validReviewers||D2.validReviewers.indexOf(e.Requester)>=0});
+  var wm = {};
+  (ad.working_minutes||[]).filter(function(w){return !D2.validReviewers||D2.validReviewers.indexOf(w.Requester)>=0}).forEach(function(w){wm[w.Requester]=w});
   var effRows=[];
-  Object.keys(edMap).forEach(function(req){
-    var e=edMap[req];var mins=wmMap[req]||0;
+  editors.forEach(function(e){
+    var w=wm[e.Requester]||{};
+    var mins=w.sumMinutes||0;
     var eff=mins>0?(e.reviewCnt/mins).toFixed(2):'-';
-    var rate=e.reviewCnt>0?((e.rejectCnt/e.reviewCnt)*100).toFixed(2):'0.00';
-    var nm=D2.reviewerNames[req]||req.split('@')[0];
-    var ded=dedMap[nm]!==undefined?String(dedMap[nm]):'-';
-    effRows.push({name:nm,email:req,ded:ded,total:e.reviewCnt,approve:e.approveCnt,reject:e.rejectCnt,rate:rate,mins:Math.round(mins),eff:eff});
+    var nm=D2.reviewerNames[e.Requester]||e.Requester.split('@')[0];
+    var ded='-';
+    if(D2.deductions&&D2.deductions[selAuditDate]){var dd=D2.deductions[selAuditDate];if(dd[nm]!==undefined)ded=dd[nm];}
+    effRows.push({name:nm,email:e.Requester,ded:ded,total:e.reviewCnt,approve:e.approveCnt,reject:e.rejectCnt,rate:e.rejectRate,mins:mins,eff:eff});
   });
   effRows.sort(function(a,b){return b.total-a.total});
-  var effH='<table class="eff-table"><thead><tr><th>#</th><th>\u5ba1\u6838\u5458</th><th>\u603b\u8ba1</th><th>\u901a\u8fc7</th><th>\u62d2\u7edd</th><th>\u62d2\u7edd\u7387%</th><th>\u5de5\u4f5c\u65f6\u957f(min)</th><th>\u4eba\u6548(\u6761/min)</th><th>\u590d\u5ba1\u6263\u5206 <span style="cursor:pointer" onclick="sortByDed()">\u25bc</span></th></tr></thead><tbody>';
+  var effH='<table class="eff-table"><thead><tr><th>#</th><th>\u5ba1\u6838\u5458</th><th>\u603b\u8ba1</th><th>\u901a\u8fc7</th><th>\u62d2\u7edd</th><th>\u62d2\u7edd\u7387%</th><th>\u5de5\u4f5c\u65f6\u957f(min)</th><th>\u4eba\u6548(\u6761/min)</th><th>\u590d\u5ba1\u6263\u5206</th></tr></thead><tbody>';
   effRows.forEach(function(r,i){
     var effCl=(r.eff!=='-'&&parseFloat(r.eff)<2.6)?'alert-cell':'';
     effH+='<tr><td>'+(i+1)+'</td><td>'+r.name+'</td><td>'+r.total.toLocaleString()+'</td><td>'+r.approve.toLocaleString()+'</td><td>'+r.reject.toLocaleString()+'</td><td>'+r.rate+'%</td><td>'+r.mins+'</td><td class="'+effCl+'">'+r.eff+'</td><td>'+r.ded+'</td></tr>';
   });
   effH+='</tbody></table>';
-  window._effRows=effRows;
 
-  // ── Aggregate hourly send vs review ──
-  var hourMap={};
-  dates.forEach(function(dt){var ad=D2.audit[dt];if(!ad)return;(ad.hourly_send_review||[]).forEach(function(s){
-    if(!hourMap[s.hour])hourMap[s.hour]={SendReviewCnt:0,ReviewCnt:0};
-    hourMap[s.hour].SendReviewCnt+=(s.SendReviewCnt||0);hourMap[s.hour].ReviewCnt+=(s.ReviewCnt||0);
-  })});
-  var svr=Object.keys(hourMap).sort(function(a,b){return a-b}).map(function(h){return{hour:+h,SendReviewCnt:hourMap[h].SendReviewCnt,ReviewCnt:hourMap[h].ReviewCnt}});
+  // ── Send vs Review ──
+  var svr=ad.hourly_send_review||[];
   var svrDiv='<div id="svrChart" class="chart-box"></div>';
 
+  // Assemble
   var html='';
-  html+='<div class="card"><h2>\u5ba1\u6838\u603b\u89c8 ('+aS2+' ~ '+aE2+')</h2>'+oh+'</div>';
+  html+='<div class="card"><h2>\u5ba1\u6838\u603b\u89c8</h2>'+oh+'</div>';
   html+='<div class="card"><h2>HI\u62d2\u7edd\u539f\u56e0\u5206\u5e03 (Top 10)</h2>'+rejectDiv+'</div>';
-  html+='<div class="card"><h2>\u5ba1\u6838\u65f6\u6548</h2>'+delayStat+'</div>';
+  html+='<div class="card"><h2>\u5ba1\u6838\u65f6\u6548</h2>'+delayStat+delayDiv+'</div>';
   html+='<div class="card"><h2>\u5ba1\u6838\u5458\u4eba\u6548</h2>'+effH+'</div>';
   html+='<div class="card"><h2>\u9010\u65f6\u9001\u5ba1 VS \u5ba1\u6838</h2>'+svrDiv+'</div>';
 
   document.getElementById('auditContent').innerHTML=html;
 
+  // Render charts
+  // Reject reasons chart
   if(reasons.length>0){
     var top10=reasons.slice(0,10);
     var rc=echarts.init(document.getElementById('rejectChart'));
@@ -465,6 +422,9 @@ function renderAudit(){
     auditCharts.push(rc);
   }
 
+  // No delay distribution chart (only avg duration available)
+
+  // Send vs Review chart
   if(svr.length>0){
     var sc=echarts.init(document.getElementById('svrChart'));
     sc.setOption({
@@ -481,23 +441,6 @@ function renderAudit(){
   }
 
   window.addEventListener('resize',function(){auditCharts.forEach(function(c){c.resize()})});
-}
-
-
-function sortByDed(){
-  var rows=window._effRows;if(!rows)return;
-  rows.sort(function(a,b){
-    var da=a.ded==='-'||a.ded==='/'?-1:parseFloat(a.ded)||0;
-    var db=b.ded==='-'||b.ded==='/'?-1:parseFloat(b.ded)||0;
-    return db-da;
-  });
-  var h='';
-  rows.forEach(function(r,i){
-    var effCl=(r.eff!=='-'&&parseFloat(r.eff)<2.6)?'alert-cell':'';
-    h+='<tr><td>'+(i+1)+'</td><td>'+r.name+'</td><td>'+r.total.toLocaleString()+'</td><td>'+r.approve.toLocaleString()+'</td><td>'+r.reject.toLocaleString()+'</td><td>'+r.rate+'%</td><td>'+r.mins+'</td><td class="'+effCl+'">'+r.eff+'</td><td>'+r.ded+'</td></tr>';
-  });
-  var tables=document.querySelectorAll('.eff-table tbody');
-  if(tables.length>0)tables[tables.length-1].innerHTML=h;
 }
 
 renCal2();renderAudit();
