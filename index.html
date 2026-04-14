@@ -62,7 +62,7 @@ td{padding:6px;border-bottom:1px solid #eee}tr:hover{background:#f5f5f5}
 </head>
 <body>
 <div class="header"><h1>📊 MSN工作日志</h1>
-<div class="sub">生成时间: 2026-04-14 15:53 | 汇入数据: 2026-03-13 ~ 2026-04-13 | 审核数据: 2026-03-30 ~ 2026-04-13</div></div>
+<div class="sub">生成时间: 2026-04-14 16:03 | 汇入数据: 2026-03-13 ~ 2026-04-13 | 审核数据: 2026-03-30 ~ 2026-04-13</div></div>
 <div class="tabs"><button class="tab-btn active" onclick="switchTab(0)">📥 汇入日志</button><button class="tab-btn" onclick="switchTab(1)">🔍 审核日志</button></div>
 <div class="tab-content active" id="tab1">
 
@@ -104,7 +104,11 @@ td{padding:6px;border-bottom:1px solid #eee}tr:hover{background:#f5f5f5}
   <h2>📅 选择日期</h2>
   <div id="calBox2"></div>
   <div class="cal-legend"><span class="w">工作日</span><span class="h">节假日</span><span class="e">周末</span><span class="s">已选</span></div>
-  <p style="text-align:center;margin-top:10px;font-size:14px;color:#1565C0;font-weight:bold">当前日期: <span id="auditDateLabel"></span></p>
+  <div class="cal-actions">
+    <div class="rd" id="auditRangeDisplay">请选择日期范围</div>
+    <button class="btn btn-s" onclick="resetR2()">重置</button>
+    <button class="btn btn-p" onclick="applyR2()">确定</button>
+  </div>
 </div>
 <div id="auditContent"></div>
 
@@ -304,7 +308,8 @@ var cY2, cMo2;
   var last = D2.auditDates[D2.auditDates.length-1].split('-');
   cY2 = +last[0]; cMo2 = +last[1];
 })();
-var selAuditDate = D2.auditDates[D2.auditDates.length-1];
+var rS2=null,rE2=null;
+var aS2=D2.auditDates[0],aE2=D2.auditDates[D2.auditDates.length-1];
 
 function renCal2(){
   var box=document.getElementById('calBox2');
@@ -324,22 +329,59 @@ function renCal2(){
     if(inf){if(inf.isWorkday)cl+=' workday';else if(inf.note==='\u5047')cl+=' holiday';else cl+=' weekend'}
     else{var dow=new Date(cY2,cMo2-1,d).getDay();if(hSet2.has(ds))cl+=' holiday';else if(woSet2.has(ds))cl+=' workday';else cl+=(dow===0||dow===6)?' weekend':' workday'}
     if(!hd)cl+=' no-data';
-    if(ds===selAuditDate)cl+=' selected';
+    if(rS2&&rE2&&ds>=rS2&&ds<=rE2)cl+=' in-range';
+    if(ds===rS2||ds===rE2)cl+=' selected';
     var nt=inf&&inf.note?'<div class="note">'+inf.note+'</div>':'';
     var ck=hd?' onclick="ckDay2(\''+ds+'\')"':'';
     h+='<div class="'+cl+'" data-date="'+ds+'"'+ck+'>'+d+nt+'</div>';
   }
   h+='</div>';box.innerHTML=h;
-  document.getElementById('auditDateLabel').textContent=selAuditDate;
+  var rdEl=document.getElementById('auditRangeDisplay');
+  if(rS2&&rE2)rdEl.textContent='\u5df2\u9009: '+rS2+' ~ '+rE2;
+  else if(rS2)rdEl.textContent='\u8d77\u59cb: '+rS2+'\uff0c\u8bf7\u9009\u62e9\u7ed3\u675f\u65e5\u671f';
+  else rdEl.textContent='\u5f53\u524d\u8303\u56f4: '+aS2+' ~ '+aE2;
 }
 function chMo2(d){cMo2+=d;if(cMo2>12){cMo2=1;cY2++}if(cMo2<1){cMo2=12;cY2--}renCal2()}
-function ckDay2(d){selAuditDate=d;renCal2();renderAudit()}
+function ckDay2(d){if(!rS2||(rS2&&rE2)){rS2=d;rE2=null}else{if(d<rS2){rE2=rS2;rS2=d}else rE2=d}renCal2()}
+function applyR2(){if(!rS2||!rE2){alert('\u8bf7\u5148\u9009\u62e9\u5f00\u59cb\u548c\u7ed3\u675f\u65e5\u671f');return}aS2=rS2;aE2=rE2;renderAudit()}
+function resetR2(){rS2=null;rE2=null;renCal2()}
 
 var auditCharts=[];
 function renderAudit(){
   auditCharts.forEach(function(c){c.dispose()});auditCharts=[];
-  var ad=D2.audit[selAuditDate];
-  if(!ad){document.getElementById('auditContent').innerHTML='<p>\u65e0\u6570\u636e</p>';return}
+  var ad=null;
+  var rangeDates=D2.auditDates.filter(function(d){return d>=aS2&&d<=aE2});
+  if(rangeDates.length===0){document.getElementById('auditContent').innerHTML='<p>\u65e0\u6570\u636e</p>';return}
+  if(rangeDates.length===1){ad=D2.audit[rangeDates[0]]}
+  else{
+    // Aggregate across range
+    ad={};
+    // Volume: sum numeric fields
+    ['articles_volume_all','articles_volume_article','articles_volume_video'].forEach(function(key){
+      ad[key]={};
+      rangeDates.forEach(function(d){var src=D2.audit[d]&&D2.audit[d][key];if(src){for(var k in src){if(typeof src[k]==='number')ad[key][k]=(ad[key][k]||0)+src[k]}}});
+    });
+    // Reject reasons: merge by token
+    ['hi_reject_reason_article','hi_reject_reason_video'].forEach(function(key){
+      var m={};rangeDates.forEach(function(d){var arr=D2.audit[d]&&D2.audit[d][key];if(arr)arr.forEach(function(r){m[r.token]=(m[r.token]||0)+(r.cnt||0)})});
+      var a=[];for(var t in m)a.push({token:t,cnt:m[t]});ad[key]=a;
+    });
+    // Avg duration: average seconds
+    ['avg_duration_all','avg_duration_article','avg_duration_video'].forEach(function(key){
+      var total=0,cnt=0;
+      rangeDates.forEach(function(d){var src=D2.audit[d]&&D2.audit[d][key];if(src&&src.AvgDurationPublishTime){var p=String(src.AvgDurationPublishTime).split(':');if(p.length>=3){total+=parseInt(p[0])*3600+parseInt(p[1])*60+parseFloat(p[2]);cnt++}}});
+      if(cnt>0){var avg=total/cnt;var h=Math.floor(avg/3600);var m=Math.floor((avg%3600)/60);var s=Math.floor(avg%60);ad[key]={AvgDurationPublishTime:String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')}}else{ad[key]={}}
+    });
+    // Review by editor: sum per requester
+    var edMap={};rangeDates.forEach(function(d){var arr=D2.audit[d]&&D2.audit[d].review_by_editor;if(arr)arr.forEach(function(e){if(!edMap[e.Requester])edMap[e.Requester]={Requester:e.Requester,reviewCnt:0,approveCnt:0,rejectCnt:0};edMap[e.Requester].reviewCnt+=e.reviewCnt||0;edMap[e.Requester].approveCnt+=e.approveCnt||0;edMap[e.Requester].rejectCnt+=e.rejectCnt||0})});
+    ad.review_by_editor=[];for(var r in edMap){var e=edMap[r];e.rejectRate=e.reviewCnt>0?Math.round(e.rejectCnt/e.reviewCnt*10000)/100:0;ad.review_by_editor.push(e)}
+    // Working minutes: sum per requester
+    var wmMap={};rangeDates.forEach(function(d){var arr=D2.audit[d]&&D2.audit[d].working_minutes;if(arr)arr.forEach(function(w){if(!wmMap[w.Requester])wmMap[w.Requester]={Requester:w.Requester,sumMinutes:0};wmMap[w.Requester].sumMinutes+=w.sumMinutes||0})});
+    ad.working_minutes=[];for(var r in wmMap)ad.working_minutes.push(wmMap[r]);
+    // Hourly: sum per hour
+    var hrMap={};rangeDates.forEach(function(d){var arr=D2.audit[d]&&D2.audit[d].hourly_send_review;if(arr)arr.forEach(function(h){if(!hrMap[h.hour])hrMap[h.hour]={hour:h.hour,SendReviewCnt:0,ReviewCnt:0};hrMap[h.hour].SendReviewCnt+=h.SendReviewCnt||0;hrMap[h.hour].ReviewCnt+=h.ReviewCnt||0})});
+    ad.hourly_send_review=[];for(var h in hrMap)ad.hourly_send_review.push(hrMap[h]);ad.hourly_send_review.sort(function(a,b){return a.hour<b.hour?-1:1});
+  }
   var all=ad.articles_volume_all||{};
   var art=ad.articles_volume_article||{};
   var vid=ad.articles_volume_video||{};
@@ -576,7 +618,7 @@ function renderAudit(){
   window.addEventListener('resize',function(){auditCharts.forEach(function(c){c.resize()})});
 }
 
-renCal2();renderAudit();
+rS2=aS2;rE2=aE2;renCal2();renderAudit();
 
 
 function switchTab(n){
