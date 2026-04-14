@@ -62,7 +62,7 @@ td{padding:6px;border-bottom:1px solid #eee}tr:hover{background:#f5f5f5}
 </head>
 <body>
 <div class="header"><h1>📊 MSN工作日志</h1>
-<div class="sub">生成时间: 2026-04-14 09:33 | 汇入数据: 2026-03-13 ~ 2026-04-13 | 审核数据: 2026-03-30 ~ 2026-04-13</div></div>
+<div class="sub">生成时间: 2026-04-14 09:37 | 汇入数据: 2026-03-13 ~ 2026-04-13 | 审核数据: 2026-03-30 ~ 2026-04-13</div></div>
 <div class="tabs"><button class="tab-btn active" onclick="switchTab(0)">📥 汇入日志</button><button class="tab-btn" onclick="switchTab(1)">🔍 审核日志</button></div>
 <div class="tab-content active" id="tab1">
 
@@ -216,7 +216,7 @@ function renCharts1(){
   var colors=['#e6194b','#3cb44b','#4363d8','#f58231','#911eb4','#42d4f4','#f032e6','#bfef45','#fabed4','#469990'];
   for(var i=0;i<ranked.length;i+=10){
     var s=i+1,e=Math.min(i+10,ranked.length);
-    h+='<div class="ct">\u6392\u540d #'+s+'-'+e+'</div><div id="ch1_'+Math.floor(i/10)+'" class="cc"></div>';
+    h+='<div class="ct">\u6392\u540d #'+s+'-'+e+'</div><div style="display:flex"><div id="ch1_'+Math.floor(i/10)+'" class="cc" style="flex:1"></div><div id="lg1_'+Math.floor(i/10)+'" style="width:160px;font-size:10px;padding:10px 0;overflow-y:auto;max-height:450px"></div></div>';
   }
   area.innerHTML=h;
   for(var i=0;i<ranked.length;i+=10){
@@ -227,17 +227,51 @@ function renCharts1(){
       itemStyle:{color:colors[j%10]},lineStyle:{width:2},symbol:'circle',symbolSize:4
     }});
     var el=document.getElementById('ch1_'+gi);if(!el)continue;
-    var chart=echarts.init(el,null,{renderer:'svg'});
+    var chart=echarts.init(el);
     chart.setOption({tooltip:{trigger:'axis'},
-      legend:{type:'plain',orient:'vertical',right:0,top:10,textStyle:{fontSize:10,lineHeight:16},itemWidth:14,itemHeight:8,itemGap:8},
-      grid:{left:60,right:150,top:30,bottom:50},
+      legend:{show:false},
+      grid:{left:60,right:10,top:30,bottom:50},
       xAxis:{type:'category',data:ad.map(function(d){return d.substring(5)}),axisLabel:{rotate:45,fontSize:11}},
       yAxis:{type:'value'},series:series});
     cInst1.push(chart);
+    // Build HTML legend (selectable/copyable)
+    var lgEl=document.getElementById('lg1_'+gi);
+    if(lgEl){
+      var lgH='';
+      page.forEach(function(item,j){
+        var nm=D1.providerNames[item.pid]||item.pid;
+        lgH+='<div style="padding:3px 0;cursor:pointer;user-select:text" data-gi="'+gi+'" data-j="'+j+'" ondblclick="toggleSeries(this,'+gi+','+j+')">';
+        lgH+='<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+colors[j%10]+';margin-right:4px"></span>';
+        lgH+='<span style="user-select:text">'+nm+'</span><br>';
+        lgH+='<span style="user-select:text;color:#888;font-size:9px;margin-left:14px">'+item.pid+'</span></div>';
+      });
+      lgEl.innerHTML=lgH;
+    }
   }
   window.addEventListener('resize',function(){cInst1.forEach(function(c){c.resize()})});
 }
 
+
+var _isolatedSeries={};
+function toggleSeries(el,gi,j){
+  var chart=cInst1[gi];if(!chart)return;
+  var opt=chart.getOption();var series=opt.series;
+  var key=gi+'_'+j;
+  if(_isolatedSeries[key]){
+    // Restore all
+    series.forEach(function(s,idx){chart.dispatchAction({type:'legendSelect',name:s.name})});
+    _isolatedSeries[key]=false;
+  } else {
+    // Isolate: hide all except j
+    series.forEach(function(s,idx){
+      if(idx===j) chart.dispatchAction({type:'legendSelect',name:s.name});
+      else chart.dispatchAction({type:'legendUnSelect',name:s.name});
+    });
+    // Clear other isolations
+    Object.keys(_isolatedSeries).forEach(function(k){_isolatedSeries[k]=false});
+    _isolatedSeries[key]=true;
+  }
+}
 
 function sortByCol(col){
   var rows=window._compAllRows;if(!rows)return;
