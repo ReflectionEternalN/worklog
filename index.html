@@ -62,7 +62,7 @@ td{padding:6px;border-bottom:1px solid #eee}tr:hover{background:#f5f5f5}
 </head>
 <body>
 <div class="header"><h1>📊 MSN工作日志</h1>
-<div class="sub">生成时间: 2026-04-14 09:21 | 汇入数据: 2026-03-13 ~ 2026-04-13 | 审核数据: 2026-03-30 ~ 2026-04-13</div></div>
+<div class="sub">生成时间: 2026-04-14 09:25 | 汇入数据: 2026-03-13 ~ 2026-04-13 | 审核数据: 2026-03-30 ~ 2026-04-13</div></div>
 <div class="tabs"><button class="tab-btn active" onclick="switchTab(0)">📥 汇入日志</button><button class="tab-btn" onclick="switchTab(1)">🔍 审核日志</button></div>
 <div class="tab-content active" id="tab1">
 
@@ -176,13 +176,18 @@ function upComp1(){
   var c1=cM[d1],c2=cM[d2];
   var l1=d1+' \u5468'+(c1?c1.wdName:''),l2=d2+' \u5468'+(c2?c2.wdName:'');
   document.getElementById('hd1').textContent=l1;document.getElementById('hd2').innerHTML=l2+' <span>\u25bc</span>';
-  var ad=getAD1();var ps=D1.providers.filter(function(p){return !vSet.has(p)});
+  var ad=getAD1();var ps=D1.providers.filter(function(p){return !vSet.has(p)});var psAll=D1.providers;
   var rows=[],t1=0,t2=0;
   ps.forEach(function(pid){var pd=D1.providerData[pid]||{};var v1=pd[d1]||0,v2=pd[d2]||0;
     var ch=v2-v1;var pct=v1>0?Math.round((ch/v1*100)*10)/10:(v2>0?100:0);
     var rt=0;ad.forEach(function(d){rt+=(pd[d]||0)});
     rows.push({pid:pid,name:D1.providerNames[pid]||pid,v1:v1,v2:v2,ch:ch,pct:pct,rt:rt});t1+=v1;t2+=v2});
   rows.sort(function(a,b){return Math.abs(b.ch)-Math.abs(a.ch)});
+  var allRows=[];
+  psAll.forEach(function(pid){var pd=D1.providerData[pid]||{};var v1=pd[d1]||0,v2=pd[d2]||0;
+    var ch=v2-v1;var pct=v1>0?Math.round((ch/v1*100)*10)/10:(v2>0?100:0);
+    allRows.push({pid:pid,name:D1.providerNames[pid]||pid,v1:v1,v2:v2,ch:ch,pct:pct});});
+  allRows.sort(function(a,b){return Math.abs(b.ch)-Math.abs(a.ch)});
   var tc=t2-t1;var tp=t1>0?Math.round((tc/t1*100)*10)/10:0;
   var up=rows.filter(function(r){return r.ch>0}).length;
   var dn=rows.filter(function(r){return r.ch<0}).length;
@@ -193,17 +198,18 @@ function upComp1(){
     '<div class="stat-box up"><div class="n">'+up+'</div><div class="l">\u5347\u9ad8</div></div>'+
     '<div class="stat-box down"><div class="n">'+dn+'</div><div class="l">\u964d\u4f4e</div></div>';
   var tb=document.getElementById('cBody');
-  tb.innerHTML=rows.map(function(r,i){
+  tb.innerHTML=allRows.map(function(r,i){
     var pc=r.pct>0?'pu':(r.pct<0?'pd':'');
     return '<tr><td>'+(i+1)+'</td><td>'+r.name+'</td><td style="font-size:11px;color:#888">'+r.pid+'</td><td>'+r.v1.toLocaleString()+'</td><td>'+r.v2.toLocaleString()+'</td><td>'+(r.ch>0?'+':'')+r.ch.toLocaleString()+'</td><td class="'+pc+'">'+(r.pct>0?'+':'')+r.pct+'%</td></tr>'
   }).join('');
-  document.getElementById('tComp').textContent='\u5168\u90e8 Provider \u53d8\u5316\u660e\u7ec6\uff08'+rows.length+' \u4e2a\uff09';
+  document.getElementById('tComp').textContent='\u5168\u90e8 Provider \u53d8\u5316\u660e\u7ec6\uff08'+allRows.length+' \u4e2a\uff09';
   window._compRows=rows;
+  window._compAllRows=allRows;
 }
 
 var cInst1=[];
 function renCharts1(){
-  var ad=getAD1();var ps=D1.providers.filter(function(p){return !vSet.has(p)});
+  var ad=getAD1();var ps=D1.providers;
   var ranked=ps.map(function(pid){var pd=D1.providerData[pid]||{};var t=0;ad.forEach(function(d){t+=(pd[d]||0)});return{pid:pid,t:t}}).sort(function(a,b){return b.t-a.t});
   cInst1.forEach(function(c){c.dispose()});cInst1=[];
   var area=document.getElementById('charts1');var h='';
@@ -234,7 +240,7 @@ function renCharts1(){
 
 
 function sortByCol(col){
-  var rows=window._compRows;if(!rows)return;
+  var rows=window._compAllRows;if(!rows)return;
   rows.sort(function(a,b){return b[col]-a[col]});
   var tb=document.getElementById('cBody');
   tb.innerHTML=rows.map(function(r,i){
